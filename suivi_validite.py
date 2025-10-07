@@ -1,29 +1,31 @@
+import os
 import pandas as pd
-import streamlit as st
 from datetime import datetime
 
 # === CONFIGURATION ===
 EXCEL_PATH = r"C:\Users\Administrateur.PC-WOODCITY2\Documents\Suivi_Validité.xlsm"
 
-# === FONCTIONS ===
-def charger_donnees():
+def charger_donnees(path):
+    """Charge les données du fichier Excel et calcule les jours restants"""
+    print(f"📂 Lecture du fichier : {path}")
+    if not os.path.exists(path):
+        print("❌ Fichier introuvable à ce chemin (probablement sur GitHub Actions).")
+        return None
+
     try:
-        df = pd.read_excel(EXCEL_PATH)
-        # Nettoyage des colonnes attendues
+        df = pd.read_excel(path)
         df.columns = [col.strip() for col in df.columns]
-        # Vérifie si les colonnes existent
+
         required_cols = ["Nom du fichier", "Date de validité", "Alerte avant (jours)"]
         for col in required_cols:
             if col not in df.columns:
-                st.error(f"Colonne manquante : {col}")
+                print(f"⚠️ Colonne manquante : {col}")
                 return None
 
-        # Conversion des dates
         df["Date de validité"] = pd.to_datetime(df["Date de validité"], errors="coerce")
         today = datetime.now().date()
         df["Jours restants"] = (df["Date de validité"].dt.date - today).dt.days
 
-        # Détermination du statut
         def statut(row):
             if pd.isnull(row["Date de validité"]):
                 return "❌ Date invalide"
@@ -38,43 +40,33 @@ def charger_donnees():
         return df
 
     except Exception as e:
-        st.error(f"Erreur lors du chargement du fichier : {e}")
+        print(f"❌ Erreur lors du chargement du fichier : {e}")
         return None
 
-# === INTERFACE STREAMLIT ===
-st.set_page_config(page_title="Suivi Validité Fichiers", layout="wide")
 
-st.title("📁 Suivi de validité des fichiers")
-st.caption("Système d’alerte automatique basé sur ton fichier Excel")
+def afficher_resultats(df):
+    """Affiche un résumé des statuts dans la console"""
+    print("\n===== RAPPORT DE VALIDITÉ =====")
+    print(df[["Nom du fichier", "Date de validité", "Jours restants", "Statut"]])
+    print("===============================\n")
 
-if st.button("🔄 Recharger les données"):
-    st.experimental_rerun()
+    alertes = df[df["Statut"].str.contains("🔴|🟠")]
+    if alertes.empty:
+        print("✅ Aucun fichier en alerte.")
+    else:
+        print("⚠️ Fichiers en alerte :")
+        for _, row in alertes.iterrows():
+            print(f"- {row['Nom du fichier']} → {row['Statut']} ({row['Jours restants']} jours restants)")
 
-df = charger_donnees()
 
-if df is not None:
-    # Filtres
-    filtre = st.selectbox("Afficher :", ["Tous", "OK", "À surveiller", "Expiré"])
-    if filtre == "OK":
-        df = df[df["Statut"].str.contains("🟢")]
-    elif filtre == "À surveiller":
-        df = df[df["Statut"].str.contains("🟠")]
-    elif filtre == "Expiré":
-        df = df[df["Statut"].str.contains("🔴")]
+if __name__ == "__main__":
+    print("🚀 Script démarré")
+    print("Répertoire de travail :", os.getcwd())
 
-    # Mise en forme
-    def couleur_ligne(val):
-        if "🔴" in val:
-            return "background-color: #ffcccc"
-        elif "🟠" in val:
-            return "background-color: #fff3cd"
-        elif "🟢" in val:
-            return "background-color: #d4edda"
-        return ""
+    df = charger_donnees(EXCEL_PATH)
+    if df is not None:
+        afficher_resultats(df)
+    else:
+        print("⚠️ Aucune donnée analysée.")
 
-    st.dataframe(
-        df.style.applymap(couleur_ligne, subset=["Statut"]),
-        use_container_width=True
-    )
-else:
-    st.warning("⚠️ Impossible de charger les données. Vérifie le chemin ou le format du fichier.")
+    print("✅ Vérificat
