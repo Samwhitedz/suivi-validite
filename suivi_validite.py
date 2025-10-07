@@ -69,4 +69,4 @@ if __name__ == "__main__":
     else:
         print("⚠️ Aucune donnée analysée.")
 
-    print("✅ Vérificat
+    print("✅ Vérification terminée avec succès.")
